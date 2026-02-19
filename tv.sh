@@ -1,0 +1,44 @@
+#!/bin/bash
+
+CONFIG_URL="https://raw.githubusercontent.com/dev-dhrubo-teamx/tv-series-showtv-plxbd/refs/heads/main/tvshowseries.txt"
+BASE_DIR="$(pwd)"
+
+current_series=""
+current_season=""
+
+url_decode() {
+    printf '%b\n' "${1//%/\\x}"
+}
+
+curl -fsSL "$CONFIG_URL" | while IFS= read -r line; do
+    line="${line//$'\r'/}"
+
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+    if [[ "$line" =~ ^\[Series:\ (.+)\]$ ]]; then
+        current_series="${BASH_REMATCH[1]}"
+        mkdir -p "$BASE_DIR/$current_series"
+        echo "Series: $current_series"
+        continue
+    fi
+
+    if [[ "$line" =~ ^\[Season:\ (.+)\]$ ]]; then
+        current_season="${BASH_REMATCH[1]}"
+        mkdir -p "$BASE_DIR/$current_series/$current_season"
+        echo "  Season: $current_season"
+        continue
+    fi
+
+    url="$line"
+    raw_name=$(basename "${url%%\?*}")
+    filename=$(url_decode "$raw_name")
+    target="$BASE_DIR/$current_series/$current_season/$filename"
+
+    if [[ -f "$target" ]]; then
+        echo "    Skipped: $filename"
+    else
+        echo "    Downloading: $filename"
+        wget -c -O "$target" "$url"
+    fi
+
+done
